@@ -16,6 +16,7 @@ class center_matrix_SVD:
         self.centers = np.mean(a,axis=dim).reshape(1,self.size[1])
         self.a_centered = np.subtract(a,np.repeat(self.centers,self.size[dim],dim))
         self.U, self.s, self.V = np.linalg.svd(self.a_centered,full_matrices = False)
+        self.PCA = self.U@np.diagflat(self.s)
 
 def dump_the_svd():
     # Gets SVD for the training dataset
@@ -30,17 +31,9 @@ def main():
         dump_the_svd()
     if skip[1]:
         x = pickle.load(open('Training SVD Data','rb'))
-        train_Images = x.U[:,0:154]@np.diagflat(x.s)[0:154,0:154]
-        plt.scatter(np.arange(154),train_Images[0,:])
-        plt.show()
-        plt.scatter(np.arange(154),x.U[0,0:154])
-        plt.show()
-        plt.scatter(np.arange(154),x.s[0:154])
-        plt.show()
-        plt.imshow(x.V[0,:].reshape(28,28))
-        plt.show()
         train_Labels = pickle.load(open('mnistTrainL.p', 'rb'))
-        #mfoldX()
+        merror = mfoldX(x.PCA,train_Labels,6,10)
+        pickle.dump(merror,open('MFoldErrors','wb'))
     #test_Images = pickle.load(open('mnistTestI.p', 'rb'))
     #test_labels = pickle.load(open('mnistTestL.p', 'rb'))
     if skip[2]:
@@ -52,3 +45,17 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+"""
+Plotting code
+        train_Images = x.U[:,0:154]@np.diagflat(x.s)[0:154,0:154]
+        plt.scatter(np.arange(154),train_Images[0,:])
+        plt.show()
+        plt.scatter(np.arange(154),x.U[0,0:154])
+        plt.show()
+        plt.scatter(np.arange(154),x.s[0:154])
+        plt.show()
+        plt.imshow(x.V[0,:].reshape(28,28))
+        plt.show()
+"""
