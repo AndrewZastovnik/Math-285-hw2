@@ -59,6 +59,37 @@ def class_error_rate(pred_labels,true_labels):
         error[i] = sum(pred_labels[i] != true_labels)/pred_labels.shape[1]
     return error
 
+def mfoldX(I, L, m, maxk):
+    # I is the trainset
+    # L is the Training Labels
+    # m is the number of folds
+    # maxk is the largest value of k we wish to test
+    # first thing to acomplish is to randomly divide the data into m parts
+    indices = np.random.permutation(I.shape[0])
+    jump = round(len(L) / m)
+    I_index = indices[:jump]
+    L_index = indices[:jump]
+    for n in range(1, m - 1):
+        I_index = np.dstack((I_index, indices[n * jump:(n + 1) * jump]))
+        L_index= np.dstack((L_index, indices[n * jump:(n + 1) * jump]))
+    I_index = np.dstack((I_index, indices[(m-1) * jump:]))
+    print(I_index.shape)
+    L_index = np.dstack((L_index, indices[(m-1) * jump:]))
+    # now data should be all nice and divided up we need to do something else
+    error = np.zeros(maxk)
+    for n in range(0, m):
+        mask = np.ones(m,dtype=bool)
+        mask[n]=0
+        notn = np.arange(0,m)[mask]
+        Ipt = I[I_index[:,:,notn].reshape(((m-1)*I_index.shape[1]))]
+        Lpt = L[I_index[:,:,notn].reshape(((m-1)*I_index.shape[1]))]
+        label = KNN(Ipt,Lpt ,I[I_index[:,:,n].reshape(I_index.shape[1])],10)
+        for k in range(10):
+            error[k] = error[k] + sum((label[k] != L[L_index[:,:,n]])[0])
+    error = error / (len(L))
+    return error
+
+"""
 import pickle
 import pandas
 import pylab as plt
@@ -79,3 +110,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+"""
