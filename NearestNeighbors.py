@@ -14,12 +14,13 @@ def KNN(I, L, x, k,weights = 1):
     from scipy.spatial.distance import cdist
     sizex = len(np.atleast_2d(x))
     label = np.zeros((k,sizex))
+    nearest = 0
     for rowsx in range(0, sizex):
-        tic()
         dists = cdist(I, np.atleast_2d(x[rowsx]), metric='euclidean')
         # Now we should have all our distances in our dist array
         # Next find the k closest neighbors of x
         k_smallest = np.argpartition(dists,tuple(range(1,k+1)),axis=None)
+        nearest = k_smallest[:k+1]
         # The next step is to use this info to classify each unknown obj
         # if we don't want to use weights weights should equal 1
         if weights == 1:
@@ -35,9 +36,9 @@ def KNN(I, L, x, k,weights = 1):
                     indices = inboth(np.arange(0,L.shape[0])[L == labs[p]],k_smallest[:i+2])
                     lab_weighted[p]= np.sum(np.multiply(weights,indices))
                 label[i,rowsx] = labs[np.argmax(lab_weighted)]
-        toc()
-        print(rowsx)
-    return label
+        if rowsx % 1000 == 1:
+            print(rowsx)
+    return label, nearest
 
 def weight_function(d):
     #takes a distance vector d and computes the associated linear weights
@@ -88,6 +89,40 @@ def mfoldX(I, L, m, maxk):
             error[k] = error[k] + sum((label[k] != L[L_index[:,:,n]])[0])
     error = error / (len(L))
     return error
+
+def local_kmeans_class(I, L, x, k):
+    from scipy.spatial.distance import cdist
+
+    sizex = len(np.atleast_2d(x))
+    label = np.zeros((sizex,k))
+    for rowsx in range(0, sizex):
+        tic()
+        dists = cdist(I, np.atleast_2d(x[rowsx]), metric='euclidean')
+        toc()
+        center = np.zeros((10,k,28*28))
+        label_order = np.unique(L)
+        l=0
+        tic()
+        thing = np.zeros((k,28*28))
+        for labs in np.unique(L):
+            indices = L == labs
+            k_smallest = np.argpartition(dists[indices],tuple(range(1,k)),axis=None)
+            for i in range(0,k):
+                M = I[indices]
+                #center[l,i,:] = np.average(M[k_smallest[:i+1]],axis = 0)
+                if i == 0:
+                    thing[i] = M[k_smallest[i+1]]
+                else:
+                    thing[i] = thing[i-1] + M[k_smallest[i+1]]
+            center[l,:,:] = np.divide(thing,np.repeat(np.arange(1,11).reshape(10,1),28*28,axis=1))
+            l+=1
+        toc()
+        for i in range(k):
+            #print(cdist(center[:,i,:], np.atleast_2d(x[rowsx]), metric='euclidean'))
+            dists2center = cdist(center[:,i,:], np.atleast_2d(x[rowsx]), metric='euclidean')
+            k_smallest = np.argpartition(dists2center,tuple(range(1)),axis=None)
+            label[rowsx,i] = label_order[k_smallest[0]]
+    return label
 
 """
 import pickle
