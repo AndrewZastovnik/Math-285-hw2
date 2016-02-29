@@ -1,7 +1,8 @@
 import numpy as np
 import pickle
 import pylab as plt
-from NearestNeighbors import mfoldX,KNN
+from NearestNeighbors import mfoldX,KNN,local_kmeans_class
+from TicToc import tic,toc
 
 class center_matrix_SVD:
     # A class to store our information about our centered matrix
@@ -67,12 +68,14 @@ def KNN_Plots(x):
     labels_154 = pickle.load(open('KNN_154','rb'))
     labels_Full = pickle.load(open('KNN_Full','rb'))
     test_labels = pickle.load(open('mnistTestL.p', 'rb'))
+    nearest_50 = pickle.load(open('Knn_50_nearest','rb'))
+    print(nearest_50.shape)
     error_50, error_50_index = class_error_rate(labels_50,test_labels)
     error_154, error_154_index = class_error_rate(labels_154,test_labels)
     error_Full, error_Full_index = class_error_rate(labels_Full,test_labels)
     print(test_labels[33])
     print(labels_50[2,33])
-    error_50_index = np.nonzero(error_50_index[2])
+    error_50_index = np.asarray(np.where(error_50_index[2]))
     error_154_index = np.asarray(np.where(error_154_index.astype(int)[2]))
     error_Full_index = np.asarray(np.where(error_Full_index.astype(int)[2]))
     error_in_50_Full = error_Full_index[0,inboth_index(error_50_index[0],error_Full_index[0])]
@@ -82,18 +85,23 @@ def KNN_Plots(x):
         test_Images_Center = np.subtract(test_Images,np.repeat(x.centers,test_Images.shape[0],0))
         y = test_Images_Center@np.transpose(x.V[:50,:])
         weighted_y = y[:,:50]@x.V[:50,:] + x.centers
-        plt.subplot(1, 3, 1)
-        plt.imshow(weighted_y[j].reshape(28,28),cmap='gray',interpolation = 'none')
+        plt.subplot(2, 3, 1)
+        plt.imshow(weighted_y[j].reshape(28,28),interpolation = 'none')
         plt.axis('off')
+        plt.title("In 50 %d Truth %d " % (np.asscalar(labels_50[2,j]), np.asscalar(test_labels[j])))
         y = test_Images_Center@np.transpose(x.V[:154,:])
         weighted_y2 = y[:,:154]@x.V[:154,:] + x.centers
-        plt.subplot(1, 3, 2)
+        plt.subplot(2, 3, 2)
         plt.imshow(weighted_y2[j].reshape(28,28),cmap='gray',interpolation = 'none')
         plt.axis('off')
-        plt.subplot(1, 3, 3)
+        plt.title("in 150 %d Truth %d " % (np.asscalar(labels_154[2,j]), np.asscalar(test_labels[j])))
+        plt.subplot(2, 3, 3)
         plt.imshow(test_Images[j].reshape(28,28),cmap='gray')
         plt.axis('off')
-        plt.title("Guess in Full %d Truth %d " % (np.asscalar(labels_Full[2,j]), np.asscalar(test_labels[j])))
+        plt.title("in Full %d Truth %d " % (np.asscalar(labels_Full[2,j]), np.asscalar(test_labels[j])))
+        #plt.subplot(2, 3, 2)
+        #train_Labels = pickle.load(open('mnistTrainL.p', 'rb'))
+        #plt.imshow(x.a_centered[j].reshape(28,28),cmap='gray')
         plt.show()
 
 def inboth_index(list1,list2):
@@ -115,8 +123,16 @@ def main():
         if 0: #Do m-folds
             merror = mfoldX(x.PCA[:,:50],train_Labels,6,10)
             pickle.dump(merror,open('MFoldErrors154','wb'))
-        if 1: #Do K-nearest Neighbors
+        if 0: #Do K-nearest Neighbors
             do_KNN(x,train_Labels)
+        if 1:
+            test_Images = pickle.load(open('mnistTestI.p', 'rb'))
+            test_Images_Center = np.subtract(test_Images,np.repeat(x.centers,test_Images.shape[0],0))
+            tic()
+            labels, nearest = local_kmeans_class(x.PCA[:,:50],train_Labels,test_Images_Center@np.transpose(x.V[:50,:]),10)
+            toc()
+            pickle.dump(labels,open('Loc_kmeans_lab','wb'))
+            pickle.dump(nearest,open('Loc_kmeans_near','wb'))
     if 0: # Plot stuff
         x = pickle.load(open('Training SVD Data','rb'))
         KNN_Plots(x)

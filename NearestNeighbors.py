@@ -14,13 +14,13 @@ def KNN(I, L, x, k,weights = 1):
     from scipy.spatial.distance import cdist
     sizex = len(np.atleast_2d(x))
     label = np.zeros((k,sizex))
-    nearest = 0
+    nearest = np.zeros((sizex,k+1))
     for rowsx in range(0, sizex):
         dists = cdist(I, np.atleast_2d(x[rowsx]), metric='euclidean')
         # Now we should have all our distances in our dist array
         # Next find the k closest neighbors of x
         k_smallest = np.argpartition(dists,tuple(range(1,k+1)),axis=None)
-        nearest = k_smallest[:k+1]
+        nearest[rowsx] = k_smallest[:k+1]
         # The next step is to use this info to classify each unknown obj
         # if we don't want to use weights weights should equal 1
         if weights == 1:
@@ -94,16 +94,15 @@ def local_kmeans_class(I, L, x, k):
     from scipy.spatial.distance import cdist
 
     sizex = len(np.atleast_2d(x))
+    columns = I.shape[1]
     label = np.zeros((sizex,k))
+    nearest = np.zeros((sizex,10,k,columns))
     for rowsx in range(0, sizex):
-        tic()
         dists = cdist(I, np.atleast_2d(x[rowsx]), metric='euclidean')
-        toc()
-        center = np.zeros((10,k,28*28))
+        center = np.zeros((10,k,columns))
         label_order = np.unique(L)
         l=0
-        tic()
-        thing = np.zeros((k,28*28))
+        thing = np.zeros((k,columns))
         for labs in np.unique(L):
             indices = L == labs
             k_smallest = np.argpartition(dists[indices],tuple(range(1,k)),axis=None)
@@ -114,15 +113,18 @@ def local_kmeans_class(I, L, x, k):
                     thing[i] = M[k_smallest[i+1]]
                 else:
                     thing[i] = thing[i-1] + M[k_smallest[i+1]]
-            center[l,:,:] = np.divide(thing,np.repeat(np.arange(1,11).reshape(10,1),28*28,axis=1))
+            center[l,:,:] = np.divide(thing,np.repeat(np.arange(1,11).reshape(10,1),columns ,axis=1))
             l+=1
-        toc()
         for i in range(k):
             #print(cdist(center[:,i,:], np.atleast_2d(x[rowsx]), metric='euclidean'))
             dists2center = cdist(center[:,i,:], np.atleast_2d(x[rowsx]), metric='euclidean')
             k_smallest = np.argpartition(dists2center,tuple(range(1)),axis=None)
             label[rowsx,i] = label_order[k_smallest[0]]
-    return label
+        nearest[rowsx] = center
+        if rowsx % 1000 == 1:
+            print(rowsx)
+    return label, nearest
+
 
 """
 import pickle
