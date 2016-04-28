@@ -1,0 +1,60 @@
+import numpy as np
+import pickle
+
+class center_matrix_SVD:
+    # A class to store our information about our centered matrix
+    # center_matrix has 7 atributes
+    # .size stores the shape of the original matrix
+    # .centers stores the center of the dataset
+    # a_centered is the centered original matrix
+    # .U .s .V are the SVD decomposition of the centered matrix
+    def __init__(self,a,dim=0):
+        size = a.shape # Gets and stores the shape of a
+        self.centers = np.mean(a,axis=dim).reshape(1,size[1])
+        # Reshaped as 1,n instead of ,n because that was causing problems
+        a_centered = np.subtract(a,np.repeat(self.centers,size[dim],dim))
+        #Creates a_centered to store the  centered a matrix
+        self.U, self.s, self.V = np.linalg.svd(a_centered,full_matrices = False) # Runs SVD on our centered a matrix
+        self.PCA = self.U@np.diagflat(self.s)
+        # stores the U*S matrix in atribute PCA since s is diagnol we can just take rows
+        # out of this instead of recalulating PCA for reduced dims
+
+class mnist:
+    # Creates a class that stores our mnist data. Hopefully it helps keep things more oragnized
+    train_Images = pickle.load(open('mnistTrainI.p', 'rb'))
+    test_Images = pickle.load(open('mnistTestI.p', 'rb'))
+    train_Labels = pickle.load(open('mnistTrainL.p', 'rb'))
+    test_Labels = pickle.load(open('mnistTestL.p', 'rb'))
+
+
+def dump_the_svd(digits):
+    # Gets SVD for the training dataset
+    train = center_matrix_SVD(digits.train_Images)
+    pickle.dump(train,open('Training SVD Data','wb')) # dump the result to a file
+    # You won't be able to load this unless you have the center_matrix_SVD class avalible
+    # Not sure it really saves much time to put this into a file since svd is pretty fast
+
+def class_error_rate(pred_labels,true_labels):
+    # for calculating the error rate
+    # Also returns a index vector with the position of incorrectly labeled images
+    if len(pred_labels.shape)> 1:
+        error = np.zeros(pred_labels.shape[0])
+        error_index = np.zeros((pred_labels.shape[0],pred_labels.shape[1]))
+        for i in range(pred_labels.shape[0]):
+            error[i] = sum(pred_labels[i] != true_labels)/pred_labels.shape[1]
+            # puts each
+            error_index[i] = 1 - np.isclose(pred_labels[i],true_labels)
+            #
+    else:
+        error = sum(pred_labels != true_labels)/pred_labels.shape[0]
+        error_index = 1 - np.isclose(pred_labels,true_labels)
+    return error, error_index
+
+def inboth_index(list1,list2):
+    # returns a list of index's in list2 but not in list1
+    index = np.zeros(list2.shape)
+    for i in range(list2.shape[0]):
+        if list2[i] not in list1:
+            index[i] = 1
+    index = np.nonzero(index.astype(int))[0]
+    return index
