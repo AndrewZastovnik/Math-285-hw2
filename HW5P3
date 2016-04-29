@@ -1,8 +1,9 @@
 from sklearn import svm
 import numpy as np
 from PCA import class_error_rate,mnist, center_matrix_SVD
-from scipy.stats import mode
+from scipy.spatial.distance import cdist
 import pickle
+from scipy.stats import mode
 
 def main():
     digits = mnist()
@@ -11,7 +12,7 @@ def main():
     for i in range(10):
         myonevsall = onevsall()
         myonevsall.fit(digits,x.PCA[:,:50],2**(i-4))
-        labels[:,i] = myonevsall.predict(digits,(digits.test_Images - x.centers)@np.transpose(x.V[:50,:]))[:,0]
+        labels[:,i] = myonevsall.predict(digits,(digits.test_Images - x.centers)@np.transpose(x.V[:50,:]),x.PCA[:,:50])
         print(class_error_rate(labels[:,i],digits.test_Labels)[0])
     pickle.dump(labels,open('Prob3_labels.p','wb'))
 
@@ -23,22 +24,37 @@ class onevsall:
             # Returns labels of 0 for i and 1 for the rest
             labels = digits.train_Labels != labsuniq[i]
             self.mysvms[str(labsuniq[i]) + "vs Rest"] = self.twoatatime(labels,x,C)
+            print("Just finished " + str(i) + " Vs some stuff")
 
     def twoatatime(self,labels,x,C):
-        # Create a mask for our index variable
-        # Get the index number for digits
+
         mysvm = svm.SVC(C=C,kernel='poly',degree=3)
         mysvm.fit(x,labels)
         return mysvm
 
-    def predict(self,digits,test):
+    def predict(self,digits,test,train):
         labsuniq = np.unique(digits.train_Labels)
         count = 0
         labels = np.zeros((test.shape[0],10))
         for i in range(labsuniq.size):
-            # Only returns the log probs for the false thing from fit
-            labels[:,count] = self.mysvms[str(labsuniq[i]) + "vs Rest"].predict(test)[:,0]
+            # Is it in this group or not
+            labels[:,count] = self.mysvms[str(labsuniq[i]) + "vs Rest"].predict(test)
             count += 1
-        return mode(labels,axis=1)[0]
+        label = np.zeros(test.shape[0])
+        for i in range(test.shape[0]):
+            print(1-labels[i,:])
+            if sum(1-labels[i,:]) == 1:
+                print(labsuniq[np.logical_not(labels[i,:].astype(bool))])
+                label[i] = labsuniq[np.logical_not(labels[i,:].astype(bool))]
+            if sum(1-labels[i,:]) > 1:
+                index = np.in1d(digits.train_Labels,labsuniq[np.logical_not(labels[i,:].astype(bool))])
+                dists = cdist(train[index], np.atleast_2d(test[i]), metric='euclidean')
+                k_smallest = np.argpartition(dists,tuple(range(1,4)),axis=None)
+                label[i] = mode(digits.train_Labels[index][k_smallest[:3]])[0]
+            if sum(1-labels[i,:]) == 0:
+                dists = cdist(train, np.atleast_2d(test[i]), metric='euclidean')
+                k_smallest = np.argpartition(dists,tuple(range(1,4)),axis=None)
+                label[i] = mode(digits.train_Labels[k_smallest[:3]])[0]
+        return label
 
 main()
