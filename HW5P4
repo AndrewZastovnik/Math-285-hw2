@@ -1,0 +1,64 @@
+from sklearn import svm
+import numpy as np
+from PCA import class_error_rate,mnist, center_matrix_SVD
+from scipy.stats import mode
+import pickle
+from scipy.spatial.distance import cdist
+
+
+def main():
+    digits = mnist()
+    sigma = find_sigma(digits,600,8)
+    x = center_matrix_SVD(digits.train_Images)
+    labels = np.zeros((digits.test_Images.shape[0],10))
+    for i in range(10):
+        myonevsone = onevsone()
+        myonevsone.fit(digits,x.PCA[:,:50],2**(i-4),sigma)
+        labels[:,i] = myonevsone.predict(digits,(digits.test_Images - x.centers)@np.transpose(x.V[:50,:]))[0]
+        print(class_error_rate(labels[:,i],digits.test_Labels)[0])
+    pickle.dump(labels,open('Prob2_labels.p','wb'))
+
+class onevsone:
+    # A Class to do one vs one svm
+    def fit(self,digits,train,C,sigma):
+        # Create a dictionary to store our svm functions
+        self.mysvms = {}
+        labsuniq = np.unique(digits.train_Labels)
+        for i in range(labsuniq.size): #  Loops through the unique labels
+            for j in range(i,labsuniq.size): #  Loops through the unique labels starting on the one i is on
+                if i != j: # Don't fit a model to the same digits
+                    self.mysvms[str(labsuniq[i]) + "vs" + str(labsuniq[j])] = self.twoatatime(digits,train,i,j,C,sigma)
+
+    def twoatatime(self,digits,train,i,j,C,sigma):
+        # Create a mask for our index variable
+        mask = np.logical_or(digits.train_Labels == i, digits.train_Labels == j)
+        # Get the index number for digits
+        index = np.arange(digits.train_Labels.size)[mask]
+        mysvm = svm.SVC(C=C,kernel='rbf',gamma= sigma**-1)
+        mysvm.fit(train[index,:],digits.train_Labels[index])
+        return mysvm
+
+    def predict(self,digits,test):
+        labsuniq = np.unique(digits.train_Labels)
+        count = 0
+        self.labels = np.zeros((test.shape[0],45))
+        for i in range(labsuniq.size):
+            for j in range(i,labsuniq.size):
+                if i != j:
+                    self.labels[:,count] = self.mysvms[str(labsuniq[i]) + "vs" + str(labsuniq[j])].predict(test)
+                    count += 1
+        return mode(self.labels,axis=1)[0]
+
+
+
+
+def find_sigma(digits,size,k):
+    index = np.random.permutation(digits.train_Labels.size)[:size]
+    dists = cdist(digits.train_Images[index], digits.train_Images[index], metric='euclidean')
+    sigma = 0
+    for i in range(size):
+        # This should return the kth closest neighbor since it includes itself
+        sigma += dists[i,np.argpartition(dists[i, :], tuple(range(1, k)), axis=None)[k]]
+    return sigma/size
+
+main()
