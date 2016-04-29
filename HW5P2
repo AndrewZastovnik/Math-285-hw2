@@ -31,7 +31,7 @@ class onevsone:
         mask = np.logical_or(digits.train_Labels == i, digits.train_Labels == j)
         # Get the index number for digits
         index = np.arange(digits.train_Labels.size)[mask]
-        mysvm = svm.SVC(C=C,kernel='poly',degree=3,decision_function_shape='ovo')
+        mysvm = svm.SVC(C=C,kernel='poly',degree=3)
         mysvm.fit(train[index,:],digits.train_Labels[index])
         return mysvm
 
