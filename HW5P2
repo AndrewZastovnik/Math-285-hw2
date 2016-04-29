@@ -11,7 +11,7 @@ def main():
     for i in range(10):
         myonevsone = onevsone()
         myonevsone.fit(digits,x.PCA[:,:50],2**(i-4))
-        labels[:,i] = myonevsone.predict(digits,(digits.test_Images - x.centers)@np.transpose(x.V[:50,:]))
+        labels[:,i] = myonevsone.predict(digits,(digits.test_Images - x.centers)@np.transpose(x.V[:50,:]))[:,0]
         print(class_error_rate(labels[:,i],digits.test_Labels)[0])
     pickle.dump(labels,open('Prob2_labels.p','wb'))
 
@@ -31,7 +31,7 @@ class onevsone:
         mask = np.logical_or(digits.train_Labels == i, digits.train_Labels == j)
         # Get the index number for digits
         index = np.arange(digits.train_Labels.size)[mask]
-        mysvm = svm.SVC(C=C,kernel='poly',degree=3)
+        mysvm = svm.SVC(C=C,kernel='poly',degree=3,decision_function_shape='ovo')
         mysvm.fit(train[index,:],digits.train_Labels[index])
         return mysvm
 
