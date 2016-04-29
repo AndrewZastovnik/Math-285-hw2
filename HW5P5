@@ -1,0 +1,75 @@
+from sklearn import svm
+import numpy as np
+from PCA import class_error_rate,mnist, center_matrix_SVD
+from scipy.stats import mode
+import pickle
+from scipy.spatial.distance import cdist
+
+
+def main():
+    digits = mnist()
+    sigma = find_sigma(digits,600,8)
+    x = center_matrix_SVD(digits.train_Images)
+    labels = np.zeros((digits.test_Images.shape[0],11))
+    for i in range(11):
+        myonevsall = onevsall()
+        myonevsall.fit(digits,x.PCA[:,:50],2**(i-4),sigma)
+        labels[:,i] = myonevsall.predict(digits,(digits.test_Images - x.centers)@np.transpose(x.V[:50,:]),x.PCA[:,:50])
+        print(class_error_rate(labels[:,i],digits.test_Labels)[0])
+    pickle.dump(labels,open('Prob4_labels.p','wb'))
+
+class onevsall:
+    def fit(self,digits,x,C,sigma):
+        self.mysvms = {}
+        labsuniq = np.unique(digits.train_Labels)
+        for i in range(labsuniq.size):
+            # Returns labels of 0 for i and 1 for the rest
+            labels = digits.train_Labels != labsuniq[i]
+            self.mysvms[str(labsuniq[i]) + "vs Rest"] = self.twoatatime(labels,x,C,sigma)
+            print("Just finished " + str(i) + " Vs some stuff")
+
+    def twoatatime(self,labels,x,C,sigma):
+        # Create a mask for our index variable
+        # Get the index number for digits
+        mysvm = svm.SVC(C=C,kernel='rbf',gamma=0.5*sigma**-2)
+        mysvm.fit(x,labels)
+        return mysvm
+
+    def predict(self,digits,test,train):
+        labsuniq = np.unique(digits.train_Labels)
+        count = 0
+        labels = np.zeros((test.shape[0],10))
+        for i in range(labsuniq.size):
+            # Is it in this group or not
+            labels[:,count] = self.mysvms[str(labsuniq[i]) + "vs Rest"].predict(test)
+            count += 1
+        label = np.zeros(test.shape[0])
+        for i in range(test.shape[0]):
+            print(1-labels[i,:])
+            if sum(1-labels[i,:]) == 1:
+                print(labsuniq[np.logical_not(labels[i,:].astype(bool))])
+                label[i] = labsuniq[np.logical_not(labels[i,:].astype(bool))]
+            if sum(1-labels[i,:]) > 1:
+                index = np.in1d(digits.train_Labels,labsuniq[np.logical_not(labels[i,:].astype(bool))])
+                dists = cdist(train[index], np.atleast_2d(test[i]), metric='euclidean')
+                k_smallest = np.argpartition(dists,tuple(range(1,4)),axis=None)
+                label[i] = mode(digits.train_Labels[index][k_smallest[:3]])[0]
+            if sum(1-labels[i,:]) == 0:
+                dists = cdist(train, np.atleast_2d(test[i]), metric='euclidean')
+                k_smallest = np.argpartition(dists,tuple(range(1,4)),axis=None)
+                label[i] = mode(digits.train_Labels[k_smallest[:3]])[0]
+        return label
+
+
+
+
+def find_sigma(digits,size,k):
+    index = np.random.permutation(digits.train_Labels.size)[:size]
+    dists = cdist(digits.train_Images[index], digits.train_Images[index], metric='euclidean')
+    sigma = 0
+    for i in range(size):
+        # This should return the kth closest neighbor since it includes itself
+        sigma += dists[i,np.argpartition(dists[i, :], tuple(range(1, k)), axis=None)[k]]
+    return sigma/size
+
+main()
