@@ -5,6 +5,7 @@ from PCA import class_error_rate,mnist, center_matrix_SVD
 from scipy.stats import mode
 import pickle
 from scipy.spatial.distance import cdist
+from Classifiers import mfoldX
 
 def main():
     digits = mnist()
@@ -17,12 +18,17 @@ def do_PCA_Stuff(digits,gamma):
     x = center_matrix_SVD(digits.train_Images)
     # I'm using 1v1 because it is faster
     labels = np.zeros((digits.test_Images.shape[0],150-2))
-    for i in range(2,151):
+    for i in range(2,151,4):
         myonevsone = onevsone()
         myonevsone.fit(digits,x.PCA[:,:i],2,gamma)
         labels[:,i] = myonevsone.predict(digits,(digits.test_Images - x.centers)@np.transpose(x.V[:i,:]))[:,0]
         print(class_error_rate(labels[:,i],digits.test_Labels)[0])
     pickle.dump(labels,open('Midterm_labels_PCA.p','wb'))
+    errors = np.zeros(150-2)
+    for i in range(2,151,4):
+        errors = mfoldX(x.PCA[:,:i],digits.train_Labels,6,onevsone(),digits)
+        print(errors)
+    pickle.dump(errors,open('Midterm_labels_PCA_Val.p','wb'))
 
 def do_C_Stuff(digits,gamma):
     x = center_matrix_SVD(digits.train_Images)
